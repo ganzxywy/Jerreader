@@ -114,6 +114,10 @@ class AndroidTranslationSettingsStore(
         copy(automaticRetryEnabled = value)
     }
 
+    fun updateDisableDeepThinking(value: Boolean) = update(KEY_DISABLE_DEEP_THINKING, value) {
+        copy(disableDeepThinking = value)
+    }
+
     fun updateFallbackMode(value: TranslationFallbackMode) = update(KEY_FALLBACK_MODE, value.name) {
         copy(fallbackMode = value)
     }
@@ -196,6 +200,9 @@ class AndroidTranslationSettingsStore(
         )
         updateAutomaticRetry(
             payload.optBoolean("automaticRetryEnabled", current.automaticRetryEnabled)
+        )
+        updateDisableDeepThinking(
+            payload.optBoolean("disableDeepThinking", current.disableDeepThinking)
         )
         updatePreferAIWhenConfigured(
             payload.optBoolean("preferAIWhenConfigured", current.preferAIWhenConfigured)
@@ -291,6 +298,10 @@ class AndroidTranslationSettingsStore(
      * A page that overrides the provider or the prompt must not read back
      * results the other configuration produced, so both overrides take part in
      * the namespace exactly as the stored values do.
+     *
+     * 缓存版本号本来会覆盖「提示词变了」这类语义差异，但缓存是按模式而不是按
+     * 偏好归档的，所以关着思考翻出来的结果和开着思考翻出来的结果落在同一格。两次
+     * 结果之间的差异读者是看得见的，把开关也写进命名空间，切换后才会重新请求。
      */
     fun cacheNamespace(
         mode: TranslationProviderMode? = null,
@@ -306,7 +317,8 @@ class AndroidTranslationSettingsStore(
             current.backendEndpoint.trim(),
             current.backendModel.trim(),
             promptTemplate ?: current.translationPromptTemplate,
-            current.grammarAnalysisPromptTemplate
+            current.grammarAnalysisPromptTemplate,
+            current.disableDeepThinking.toString()
         ).joinToString("\u001F")
     }
 
@@ -348,6 +360,7 @@ class AndroidTranslationSettingsStore(
             ),
             translationHapticsEnabled = storage.getBoolean(KEY_HAPTICS, true),
             automaticRetryEnabled = storage.getBoolean(KEY_AUTOMATIC_RETRY, true),
+            disableDeepThinking = storage.getBoolean(KEY_DISABLE_DEEP_THINKING, false),
             preferAIWhenConfigured = storage.getBoolean(
                 KEY_PREFER_AI,
                 TranslationPreferences().preferAIWhenConfigured
@@ -410,6 +423,7 @@ class AndroidTranslationSettingsStore(
         const val KEY_DISPLAY_MODE = "display.mode"
         const val KEY_HAPTICS = "translation.haptics"
         const val KEY_AUTOMATIC_RETRY = "automatic.retry"
+        const val KEY_DISABLE_DEEP_THINKING = "translation.disableDeepThinking"
         const val KEY_FALLBACK_MODE = "fallback.mode"
         const val KEY_PREFER_AI = "prefer.ai.when.configured"
         const val KEY_PROMPT = "translation.prompt"

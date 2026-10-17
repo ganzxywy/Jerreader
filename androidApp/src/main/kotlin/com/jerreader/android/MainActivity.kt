@@ -244,6 +244,8 @@ class MainActivity : ComponentActivity() {
                             updateDisplayMode = graph.translationSettings::updateDisplayMode,
                             updateTranslationHaptics = graph.translationSettings::updateTranslationHaptics,
                             updateAutomaticRetry = graph.translationSettings::updateAutomaticRetry,
+                            updateDisableDeepThinking =
+                                graph.translationSettings::updateDisableDeepThinking,
                             updateFallbackMode = graph.translationSettings::updateFallbackMode,
                             updatePreferAIWhenConfigured =
                                 graph.translationSettings::updatePreferAIWhenConfigured,

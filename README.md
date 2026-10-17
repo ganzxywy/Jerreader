@@ -100,6 +100,22 @@ Apple 系统翻译不需要 API Key。也可以在 App 内配置 GPT、Claude、
 
 直接调用可能产生服务商费用。公开分发或多人共用时，更适合使用自建 HTTPS 代理，把上游密钥留在服务器端。代理请求包含稳定的幂等键，服务端可以据此复用短时间内的重复请求，避免重复计费。
 
+### 关闭深度思考
+
+「设置 → 翻译与 AI → 提示词与 AI 行为」里有「关闭深度思考」。打开后，翻译和句子结构分析会要求服务端跳过思维链，译文返回更快、输出 token 更少；默认关闭，保持各服务商自己的默认行为。
+
+由于没有统一参数，App 按服务商下发的字段不同：
+
+| 服务商 | 关闭思考的方式 |
+|---|---|
+| DeepSeek | 请求体 `thinking: {"type": "disabled"}` 与 `reasoning_effort: "none"`（思考模式下 `temperature` 不生效，因此不再发送） |
+| Kimi | 请求体 `enable_thinking: false` |
+| 其他兼容服务 | 请求体 `enable_thinking: false` 与 `chat_template_kwargs: {"enable_thinking": false}`（vLLM、SGLang 与部分网关要求后者） |
+| Gemini | 请求体 `generationConfig.thinkingConfig.thinkingBudget: 0` |
+| GPT、Claude | 不写请求体字段（Responses 与 Messages 的 `reasoning` 同时表达思考强度，用它当关闭开关会连非推理模型一起影响），只带请求头 |
+
+所有情况下都会带上请求头 `X-Enable-Thinking: false`，自建代理还可以读取 `X-Jerreader-Disable-Thinking: 1`，并在请求体的可选字段 `disableThinking` 里看到同样的意图。开关关闭时请求与未加此功能时完全一致。
+
 ### 本机数据边界
 
 - 书籍、阅读位置、批注、生词和翻译历史默认只保存在设备上。

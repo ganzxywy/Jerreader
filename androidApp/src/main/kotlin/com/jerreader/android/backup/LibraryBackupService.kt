@@ -756,6 +756,7 @@ class LibraryBackupService(
                     .put("displayMode", translation.displayMode.name)
                     .put("translationHapticsEnabled", translation.translationHapticsEnabled)
                     .put("automaticRetryEnabled", translation.automaticRetryEnabled)
+                    .put("disableDeepThinking", translation.disableDeepThinking)
                     .put("fallbackMode", translation.fallbackMode.name)
                     .put("preferAIWhenConfigured", translation.preferAIWhenConfigured)
                     .put("translationPromptTemplate", translation.translationPromptTemplate)

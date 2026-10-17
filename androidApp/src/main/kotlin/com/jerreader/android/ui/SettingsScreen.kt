@@ -50,6 +50,7 @@ import com.jerreader.unified.translation.TranslationProviderMode
 import com.jerreader.unified.translation.TranslationFallbackMode
 import com.jerreader.unified.translation.TranslationDisplayMode
 import com.jerreader.unified.translation.TranslationSourceChoice
+import com.jerreader.unified.translation.canDisableThinkingInRequestBody
 import com.jerreader.android.settings.AndroidAppPreferences
 import com.jerreader.android.settings.AppThemeChoice
 import com.jerreader.unified.ui.AppGuideScreen
@@ -97,6 +98,7 @@ data class TranslationSettingsActions(
     val updateDisplayMode: (TranslationDisplayMode) -> Unit,
     val updateTranslationHaptics: (Boolean) -> Unit,
     val updateAutomaticRetry: (Boolean) -> Unit,
+    val updateDisableDeepThinking: (Boolean) -> Unit,
     val updateFallbackMode: (TranslationFallbackMode) -> Unit,
     val updatePreferAIWhenConfigured: (Boolean) -> Unit,
     val updatePrompt: (String) -> Unit,
@@ -930,9 +932,43 @@ private fun TranslationSettings(
                     }
                 ) { Text("恢复默认解析提示词") }
             }
+            if (disableDeepThinkingIsAvailable(preferences)) {
+                SettingsToggleRow(
+                    "关闭深度思考",
+                    preferences.disableDeepThinking,
+                    actions.updateDisableDeepThinking
+                )
+                SettingsFootnote(
+                    if (preferences.disableDeepThinking) {
+                        "翻译与句子分析会要求服务端跳过思维链，译文返回更快、输出 token 更少。" +
+                            "遇到完全打不开思考的模型可能直接报错，关掉本开关即可恢复。"
+                    } else {
+                        "保持服务商默认；DeepSeek 这类模型会先输出一段思维链再给译文，" +
+                            "更慢也更贵一些。"
+                    }
+                )
+            }
         }
     }
 }
+
+/**
+ * 「关闭深度思考」只对有下方三种情况之一的服务显示：
+ *
+ * - 直接 API 且该服务商在文档里有真实的关闭字段（DeepSeek、Kimi、Gemini、
+ *   兼容服务）。GPT 与 Claude 的 `reasoning` 字段同时表示思考强度，拿它当关闭
+ *   开关会连非推理模型一起打挂，所以干脆不展示。
+ * - AI 代理：具体怎么关由代理自己决定，App 只带请求头和一个可选字段。
+ *
+ * 与本机翻译无关，所以 ON_DEVICE 一律不显示。
+ */
+private fun disableDeepThinkingIsAvailable(preferences: TranslationPreferences): Boolean =
+    when (preferences.providerMode) {
+        TranslationProviderMode.ON_DEVICE -> false
+        TranslationProviderMode.BACKEND_PROXY -> true
+        TranslationProviderMode.DIRECT_API ->
+            preferences.directProvider.canDisableThinkingInRequestBody()
+    }
 
 @Composable
 private fun ConnectionTestRow(isTesting: Boolean, status: String?, onTest: () -> Unit) {
