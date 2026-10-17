@@ -1,0 +1,63 @@
+# 手动编出可安装的 Android APK。
+#
+# 为什么放在云端：本机要装 Android SDK + Gradle 依赖需要几个 GB，而且仓库不携带
+# 签名密钥。这个工作流在 GitHub 的 Ubuntu runner 上做四件事——准备 JDK 17、准备用
+# 缓存固定的 debug keystore、跑共用测试、编出已签名的 APK——然后把 APK 作为
+# artifact 提供下载。点 Run workflow 即可，不需要克隆之外的任何配置。
+#
+# 签名身份：仓库的正式分发一直用 debug key（见 docs/MAINTENANCE.md §6），这里用
+# 一个通过 Actions 缓存固定下来的 debug keystore，因此连续多次构建的签名稳定，
+# 可以覆盖安装，不会每次都要先卸载。它和作者自己机器上的那份 key 不同，所以与
+# 官方 Release APK 之间仍然不能互相覆盖安装。
+name: Android APK
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'androidApp/**'
+      - 'core/**'
+      - 'ui/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'version.properties'
+      - '.github/workflows/android-apk.yml'
+  pull_request:
+    paths:
+      - 'androidApp/**'
+      - 'core/**'
+      - 'ui/**'
+permissions:
+  contents: read
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    name: Build signed APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      # 项目要求 JDK 17（docs/MAINTENANCE.md）。
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      # 版本号来自 version.properties，构建前先读出来，用于产物命名与日志。
+      - name: Read version
+        id: version
+        run: |
+          versionName=$(sed -n 's/^versionName=//p' version.properties)
+          versionCode=$(sed -n 's/^versionCode=//p' version.properties)
+          echo "name=$versionName" >> "$GITHUB_OUTPUT"
+          echo "code=$versionCode" >> "$GITHUB_OUTPUT"
+          echo "Jerreader $versionName ($versionCode)"
+      # keystore 存在缓存里，构建之间的签名身份才稳定；不存在时才新建。
+      - name: Restore signing keystore
+        id: keystore
