@@ -259,6 +259,7 @@ struct BackendTranslationConfiguration: Equatable, Sendable {
     let accessToken: String?
     let translationPromptTemplate: String
     let grammarAnalysisPromptTemplate: String
+    let disableDeepThinking: Bool
 
     init(
         endpoint: URL,
@@ -266,13 +267,15 @@ struct BackendTranslationConfiguration: Equatable, Sendable {
         accessToken: String?,
         translationPromptTemplate: String = AIPromptTemplateDefaults.translation,
         grammarAnalysisPromptTemplate: String =
-            AIPromptTemplateDefaults.grammarAnalysis
+            AIPromptTemplateDefaults.grammarAnalysis,
+        disableDeepThinking: Bool = false
     ) {
         self.endpoint = endpoint
         self.model = model
         self.accessToken = accessToken
         self.translationPromptTemplate = translationPromptTemplate
         self.grammarAnalysisPromptTemplate = grammarAnalysisPromptTemplate
+        self.disableDeepThinking = disableDeepThinking
     }
 }
 
@@ -283,6 +286,9 @@ struct DirectAITranslationConfiguration: Equatable, Sendable {
     let apiKey: String
     let translationPromptTemplate: String
     let grammarAnalysisPromptTemplate: String
+    /// 关闭深度思考。默认 `false`，与各服务商自己的默认行为一致；读者在
+    /// 「翻译与 AI → 提示词与 AI 行为」里打开后才写进请求。
+    let disableDeepThinking: Bool
 
     init(
         provider: DirectAIProviderChoice,
@@ -291,7 +297,8 @@ struct DirectAITranslationConfiguration: Equatable, Sendable {
         apiKey: String,
         translationPromptTemplate: String = AIPromptTemplateDefaults.translation,
         grammarAnalysisPromptTemplate: String =
-            AIPromptTemplateDefaults.grammarAnalysis
+            AIPromptTemplateDefaults.grammarAnalysis,
+        disableDeepThinking: Bool = false
     ) {
         self.provider = provider
         self.endpoint = endpoint
@@ -299,5 +306,6 @@ struct DirectAITranslationConfiguration: Equatable, Sendable {
         self.apiKey = apiKey
         self.translationPromptTemplate = translationPromptTemplate
         self.grammarAnalysisPromptTemplate = grammarAnalysisPromptTemplate
+        self.disableDeepThinking = disableDeepThinking
     }
 }

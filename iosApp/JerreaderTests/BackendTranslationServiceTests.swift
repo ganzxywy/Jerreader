@@ -229,7 +229,239 @@ final class BackendTranslationServiceTests: XCTestCase {
         XCTAssertEqual(request.url, endpoint)
         XCTAssertEqual(body["model"] as? String, "deepseek-test")
         XCTAssertEqual(messages.map { $0["role"] as? String }, ["system", "user"])
+        // 「关闭深度思考」默认关闭，请求体里不该多出任何思考参数。
+        XCTAssertNil(body["thinking"])
+        XCTAssertNil(body["reasoning_effort"])
+        XCTAssertNil(body["enable_thinking"])
+        XCTAssertNil(request.value(forHTTPHeaderField: "X-Enable-Thinking"))
         XCTAssertEqual(result.translatedText, "你好。")
+    }
+
+    func testDisablingDeepThinkingKeepsTheOldRequestWhenItIsOff() async throws {
+        let endpoint = try XCTUnwrap(
+            URL(string: "https://api.deepseek.com/chat/completions")
+        )
+        let client = BackendHTTPClientStub(
+            statusCode: 200,
+            body: #"{"choices":[{"message":{"content":"你好。"}}]}"#.data(using: .utf8)!
+        )
+        let service = DirectAITranslationService(
+            configuration: .init(
+                provider: .deepSeek,
+                endpoint: endpoint,
+                model: "deepseek-test",
+                apiKey: "deepseek-test-key",
+                disableDeepThinking: false
+            ),
+            client: client
+        )
+
+        _ = try await service.translate(
+            text: "Hello.",
+            sourceLanguage: .english,
+            targetLanguage: .simplifiedChinese
+        )
+        let request = try XCTUnwrap(await client.lastRequest())
+        let body = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: try XCTUnwrap(request.httpBody))
+                as? [String: Any]
+        )
+
+        XCTAssertEqual(
+            Set(body.keys),
+            ["model", "messages", "stream"],
+            "开关关闭时请求体必须与加这个功能之前逐字段相同"
+        )
+        XCTAssertNotNil(body["stream"])
+        XCTAssertTrue(request.allHTTPHeaderFields?.isEmpty == false)
+        XCTAssertNil(request.value(forHTTPHeaderField: "X-Enable-Thinking"))
+        XCTAssertNil(request.value(forHTTPHeaderField: "X-Jerreader-Disable-Thinking"))
+    }
+
+    func testDisablingDeepThinkingUsesTheDeepSeekThinkingField() async throws {
+        let endpoint = try XCTUnwrap(
+            URL(string: "https://api.deepseek.com/chat/completions")
+        )
+        let client = BackendHTTPClientStub(
+            statusCode: 200,
+            body: #"{"choices":[{"message":{"content":"你好。"}}]}"#.data(using: .utf8)!
+        )
+        let service = DirectAITranslationService(
+            configuration: .init(
+                provider: .deepSeek,
+                endpoint: endpoint,
+                model: "deepseek-test",
+                apiKey: "deepseek-test-key",
+                disableDeepThinking: true
+            ),
+            client: client
+        )
+
+        _ = try await service.translate(
+            text: "Hello.",
+            sourceLanguage: .english,
+            targetLanguage: .simplifiedChinese
+        )
+        let request = try XCTUnwrap(await client.lastRequest())
+        let body = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: try XCTUnwrap(request.httpBody))
+                as? [String: Any]
+        )
+        let thinking = try XCTUnwrap(body["thinking"] as? [String: Any])
+
+        XCTAssertEqual(thinking["type"] as? String, "disabled")
+        XCTAssertEqual(body["reasoning_effort"] as? String, "none")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "X-Enable-Thinking"), "false")
+        XCTAssertEqual(
+            request.value(forHTTPHeaderField: "X-Jerreader-Disable-Thinking"),
+            "1"
+        )
+    }
+
+    func testDisablingDeepThinkingCoversBothCompatibleServiceSpellings() async throws {
+        let endpoint = try XCTUnwrap(URL(string: "https://gateway.example.test/v1/chat/completions"))
+        let client = BackendHTTPClientStub(
+            statusCode: 200,
+            body: #"{"choices":[{"message":{"content":"你好。"}}]}"#.data(using: .utf8)!
+        )
+        let service = DirectAITranslationService(
+            configuration: .init(
+                provider: .openAICompatible,
+                endpoint: endpoint,
+                model: "local-model",
+                apiKey: "local-key",
+                disableDeepThinking: true
+            ),
+            client: client
+        )
+
+        _ = try await service.translate(
+            text: "Hello.",
+            sourceLanguage: .english,
+            targetLanguage: .simplifiedChinese
+        )
+        let request = try XCTUnwrap(await client.lastRequest())
+        let body = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: try XCTUnwrap(request.httpBody))
+                as? [String: Any]
+        )
+        let templateKwargs = try XCTUnwrap(
+            body["chat_template_kwargs"] as? [String: Any]
+        )
+
+        XCTAssertEqual((body["enable_thinking"] as? NSNumber)?.boolValue, false)
+        XCTAssertEqual(
+            (templateKwargs["enable_thinking"] as? NSNumber)?.boolValue,
+            false
+        )
+    }
+
+    func testDisablingDeepThinkingUsesAZeroGeminiThinkingBudget() async throws {
+        let endpoint = try XCTUnwrap(
+            URL(string: "https://generativelanguage.googleapis.com/v1beta")
+        )
+        let client = BackendHTTPClientStub(
+            statusCode: 200,
+            body: #"{"candidates":[{"content":{"parts":[{"text":"你好。"}]}}]}"#
+                .data(using: .utf8)!
+        )
+        let service = DirectAITranslationService(
+            configuration: .init(
+                provider: .gemini,
+                endpoint: endpoint,
+                model: "gemini-test",
+                apiKey: "gemini-key",
+                disableDeepThinking: true
+            ),
+            client: client
+        )
+
+        _ = try await service.translate(
+            text: "Hello.",
+            sourceLanguage: .english,
+            targetLanguage: .simplifiedChinese
+        )
+        let request = try XCTUnwrap(await client.lastRequest())
+        let body = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: try XCTUnwrap(request.httpBody))
+                as? [String: Any]
+        )
+        let generationConfig = try XCTUnwrap(body["generationConfig"] as? [String: Any])
+        let thinkingConfig = try XCTUnwrap(
+            generationConfig["thinkingConfig"] as? [String: Any]
+        )
+
+        XCTAssertEqual(thinkingConfig["thinkingBudget"] as? Int, 0)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "X-Enable-Thinking"), "false")
+    }
+
+    func testGptKeepsItsBodyAndOnlyGainsTheThinkingHeader() async throws {
+        let endpoint = try XCTUnwrap(URL(string: "https://api.openai.com/v1/responses"))
+        let client = BackendHTTPClientStub(
+            statusCode: 200,
+            body: #"{"output_text":"夜晚很安静。","output":[]}"#.data(using: .utf8)!
+        )
+        let service = DirectAITranslationService(
+            configuration: .init(
+                provider: .openAI,
+                endpoint: endpoint,
+                model: "gpt-test",
+                apiKey: "openai-test-key",
+                disableDeepThinking: true
+            ),
+            client: client
+        )
+
+        _ = try await service.translate(
+            text: "The night was quiet.",
+            sourceLanguage: .english,
+            targetLanguage: .simplifiedChinese
+        )
+        let request = try XCTUnwrap(await client.lastRequest())
+        let body = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: try XCTUnwrap(request.httpBody))
+                as? [String: Any]
+        )
+
+        // Responses 的 reasoning 字段同时表达思考强度，用它当关闭开关会把非推理
+        // 模型一起打挂，所以这里只能多一个请求头。
+        XCTAssertEqual(Set(body.keys), ["model", "instructions", "input"])
+        XCTAssertEqual(request.value(forHTTPHeaderField: "X-Enable-Thinking"), "false")
+    }
+
+    func testProxyCarriesTheDisableThinkingIntent() async throws {
+        let endpoint = try XCTUnwrap(URL(string: "https://translate.example.test/translate"))
+        let client = BackendHTTPClientStub(
+            statusCode: 200,
+            body: #"{"translatedText":"夜晚很安静。"}"#.data(using: .utf8)!
+        )
+        let service = BackendTranslationService(
+            configuration: BackendTranslationConfiguration(
+                endpoint: endpoint,
+                model: "translation-model",
+                accessToken: nil,
+                disableDeepThinking: true
+            ),
+            client: client
+        )
+
+        _ = try await service.translate(
+            text: "The night was quiet.",
+            sourceLanguage: .english,
+            targetLanguage: .simplifiedChinese
+        )
+        let request = try XCTUnwrap(await client.lastRequest())
+        let body = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: try XCTUnwrap(request.httpBody))
+                as? [String: Any]
+        )
+
+        XCTAssertEqual(body["disableThinking"] as? NSNumber, true)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "X-Enable-Thinking"), "false")
+        XCTAssertEqual(
+            request.value(forHTTPHeaderField: "X-Jerreader-Disable-Thinking"),
+            "1"
+        )
     }
 
     func testKimiDirectPresetUsesOfficialChatCompletionsContract() async throws {
@@ -496,6 +728,48 @@ final class BackendTranslationServiceTests: XCTestCase {
         XCTAssertEqual(
             DirectAITranslationService.providerVersion(for: first),
             DirectAITranslationService.providerVersion(for: second)
+        )
+    }
+
+    func testDeepThinkingSwitchChangesTheCacheIdentity() throws {
+        let endpoint = try XCTUnwrap(
+            URL(string: "https://api.deepseek.com/chat/completions")
+        )
+        let thinkingOn = DirectAITranslationConfiguration(
+            provider: .deepSeek,
+            endpoint: endpoint,
+            model: "deepseek-test",
+            apiKey: "local-secret"
+        )
+        let thinkingOff = DirectAITranslationConfiguration(
+            provider: .deepSeek,
+            endpoint: endpoint,
+            model: "deepseek-test",
+            apiKey: "local-secret",
+            disableDeepThinking: true
+        )
+
+        // 开关改变的是请求语义（也改变译文），缓存身份必须跟着变，否则切换后
+        // 会读到按另一种模式翻译出来的旧结果。Android 的 cacheNamespace 同样处理。
+        XCTAssertNotEqual(
+            DirectAITranslationService.providerVersion(for: thinkingOn),
+            DirectAITranslationService.providerVersion(for: thinkingOff)
+        )
+
+        let proxyOn = BackendTranslationConfiguration(
+            endpoint: try XCTUnwrap(URL(string: "https://translate.example.test/translate")),
+            model: "translation-model",
+            accessToken: nil
+        )
+        let proxyOff = BackendTranslationConfiguration(
+            endpoint: try XCTUnwrap(URL(string: "https://translate.example.test/translate")),
+            model: "translation-model",
+            accessToken: nil,
+            disableDeepThinking: true
+        )
+        XCTAssertNotEqual(
+            BackendTranslationService.providerVersion(for: proxyOn),
+            BackendTranslationService.providerVersion(for: proxyOff)
         )
     }
 

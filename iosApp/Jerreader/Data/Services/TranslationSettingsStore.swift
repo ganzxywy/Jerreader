@@ -89,6 +89,14 @@ final class TranslationSettingsStore: ObservableObject {
         didSet { defaults.set(automaticRetryEnabled, forKey: Keys.automaticRetryEnabled) }
     }
 
+    /// 只对 AI 服务有意义：让服务端跳过思维链。默认关闭，保持服务商默认行为，
+    /// 见 `DirectAITranslationService` 里的参数说明。
+    @Published var disableDeepThinking: Bool {
+        didSet {
+            defaults.set(disableDeepThinking, forKey: Keys.disableDeepThinking)
+        }
+    }
+
     @Published var fallbackProvider: TranslationFallbackChoice {
         didSet { defaults.set(fallbackProvider.rawValue, forKey: Keys.fallbackProvider) }
     }
@@ -228,6 +236,11 @@ final class TranslationSettingsStore: ObservableObject {
         } else {
             automaticRetryEnabled = defaults.bool(forKey: Keys.automaticRetryEnabled)
         }
+        if defaults.object(forKey: Keys.disableDeepThinking) == nil {
+            disableDeepThinking = false
+        } else {
+            disableDeepThinking = defaults.bool(forKey: Keys.disableDeepThinking)
+        }
         fallbackProvider = TranslationFallbackChoice(
             rawValue: defaults.string(forKey: Keys.fallbackProvider) ?? ""
         ) ?? .none
@@ -269,7 +282,8 @@ final class TranslationSettingsStore: ObservableObject {
             model: model,
             apiKey: key,
             translationPromptTemplate: translationPromptTemplate,
-            grammarAnalysisPromptTemplate: grammarAnalysisPromptTemplate
+            grammarAnalysisPromptTemplate: grammarAnalysisPromptTemplate,
+            disableDeepThinking: disableDeepThinking
         )
     }
 
@@ -310,7 +324,8 @@ final class TranslationSettingsStore: ObservableObject {
             model: model.isEmpty ? nil : model,
             accessToken: token.isEmpty ? nil : token,
             translationPromptTemplate: translationPromptTemplate,
-            grammarAnalysisPromptTemplate: grammarAnalysisPromptTemplate
+            grammarAnalysisPromptTemplate: grammarAnalysisPromptTemplate,
+            disableDeepThinking: disableDeepThinking
         )
     }
 
@@ -352,6 +367,7 @@ final class TranslationSettingsStore: ObservableObject {
             Keys.quickTranslationUnit,
             Keys.disablesTapPageTurnsDuringQuickTranslation,
             Keys.automaticRetryEnabled,
+            Keys.disableDeepThinking,
             Keys.fallbackProvider,
             Keys.directAPIProvider,
             Keys.backendEndpoint,
@@ -407,6 +423,9 @@ final class TranslationSettingsStore: ObservableObject {
         automaticRetryEnabled = defaults.object(
             forKey: Keys.automaticRetryEnabled
         ) == nil || defaults.bool(forKey: Keys.automaticRetryEnabled)
+        disableDeepThinking = defaults.object(
+            forKey: Keys.disableDeepThinking
+        ) == nil ? false : defaults.bool(forKey: Keys.disableDeepThinking)
         fallbackProvider = TranslationFallbackChoice(
             rawValue: defaults.string(forKey: Keys.fallbackProvider) ?? ""
         ) ?? .none
@@ -479,6 +498,7 @@ final class TranslationSettingsStore: ObservableObject {
         static let disablesTapPageTurnsDuringQuickTranslation =
             "translation.quickSentenceDisablesTapPageTurns"
         static let automaticRetryEnabled = "translation.automaticRetryEnabled"
+        static let disableDeepThinking = "translation.disableDeepThinking"
         static let fallbackProvider = "translation.fallbackProvider"
         static let directAPIProvider = "translation.directAPI.provider"
         static let backendEndpoint = "translation.backendEndpoint"

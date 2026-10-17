@@ -1098,6 +1098,18 @@ struct TranslationPreferencesSection: View {
                         Text("可使用 {source_language}、{target_language} 和 {response_language} 占位符。修改提示词后会生成新的缓存版本，不会误用旧结果。")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+
+                        if disableDeepThinkingIsAvailable {
+                            Divider()
+                            Toggle("关闭深度思考", isOn: $settings.disableDeepThinking)
+                            Text(
+                                settings.disableDeepThinking
+                                    ? "翻译与句子分析会要求服务端跳过思维链，译文返回更快、输出 token 更少。遇到完全打不开思考的模型可能直接报错，关掉本开关即可恢复。"
+                                    : "保持服务商默认；DeepSeek 这类模型会先输出一段思维链再给译文，更慢也更贵一些。"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
                     }
                     .padding(.vertical, 8)
                 }
@@ -1439,6 +1451,25 @@ struct TranslationPreferencesSection: View {
             return settings.backendConfiguration == nil
                 ? "请先完成 AI 代理配置，否则备用切换不会执行。"
                 : "主服务短暂失败或超时后，会把同一段选中文字发送给已配置的 AI 代理。"
+        }
+    }
+
+    /// 「关闭深度思考」只对能真正关掉的服务显示：直接 API 需要该服务商在文档里
+    /// 有真实的关闭字段（GPT 与 Claude 的 `reasoning` 同时表示思考强度，拿它当
+    /// 关闭开关会连非推理模型一起打挂），AI 代理则把决定权交给代理自己。
+    private var disableDeepThinkingIsAvailable: Bool {
+        switch settings.provider {
+        case .apple:
+            return false
+        case .backendProxy:
+            return true
+        case .directAPI:
+            switch settings.directAPIProvider {
+            case .deepSeek, .kimi, .gemini, .openAICompatible:
+                return true
+            case .openAI, .anthropic:
+                return false
+            }
         }
     }
 

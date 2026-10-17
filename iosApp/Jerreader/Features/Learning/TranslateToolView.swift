@@ -1065,7 +1065,10 @@ struct TranslateToolView: View {
                     fallback: base.translationPromptTemplate
                 ),
                 grammarAnalysisPromptTemplate:
-                    base.grammarAnalysisPromptTemplate
+                    base.grammarAnalysisPromptTemplate,
+                // 独立翻译页与原位翻译用同一套 AI 行为，否则读者会发现同一个开关
+                // 在两个页面效果不一样。
+                disableDeepThinking: base.disableDeepThinking
             )
             return DirectAITranslationService(configuration: configuration)
         case .backendProxy:
@@ -1080,7 +1083,8 @@ struct TranslateToolView: View {
                     fallback: base.translationPromptTemplate
                 ),
                 grammarAnalysisPromptTemplate:
-                    base.grammarAnalysisPromptTemplate
+                    base.grammarAnalysisPromptTemplate,
+                disableDeepThinking: base.disableDeepThinking
             )
             return BackendTranslationService(configuration: configuration)
         }
