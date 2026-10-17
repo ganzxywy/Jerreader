@@ -147,6 +147,16 @@ data class TranslationPreferences(
     val displayMode: TranslationDisplayMode = TranslationDisplayMode.NEAR_SELECTION,
     val translationHapticsEnabled: Boolean = true,
     val automaticRetryEnabled: Boolean = true,
+    /**
+     * 只对 AI 服务（直接 API 或代理）有意义：打开后，翻译与句子分析请求会带上
+     * 关闭深度思考的参数与请求头。
+     *
+     * 默认关闭，也就是保持服务商自己的默认行为——DeepSeek 这类服务的思考模式
+     * 默认是开的，静悄悄替读者改掉它比多等几秒更糟：译文质量的差别要读者自己
+     * 判断，所以这里只提供开关，不预设答案。具体写什么参数见
+     * [DirectAIProvider.thinkingDisabledParameters]。
+     */
+    val disableDeepThinking: Boolean = false,
     val fallbackMode: TranslationFallbackMode = TranslationFallbackMode.NONE,
     val translationPromptTemplate: String = DEFAULT_TRANSLATION_PROMPT,
     val grammarAnalysisPromptTemplate: String = DEFAULT_GRAMMAR_PROMPT,
