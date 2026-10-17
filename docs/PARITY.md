@@ -169,6 +169,24 @@ UIKit/SwiftUI 桥接路径，因此无需复制平台专用实现；两端可见
 不会删除生词或复习进度；重新开启后继续原队列。界面分别在 iPhone 16 Pro（393×852）与
 Android 1080×2400 模拟器上检查，四分段、复习问答、评分按钮和显隐状态均无截断。
 
+### 1.16 1.5.1 关闭深度思考
+
+「设置 → 翻译与 AI → 提示词与 AI 行为」两端都有「关闭深度思考」，默认关闭，文案与说明
+一致（左开关右说明的布局也一致）。可关闭字段随服务商而不同，但两端写出的请求体逐字段相同：
+
+| 服务商 | 请求体 | 两端实现 |
+| --- | --- | --- |
+| DeepSeek | `thinking.type = disabled`、`reasoning_effort = none`，且不再发送 `temperature` | `ThinkingModePolicy` / `DirectAITranslationConfiguration.chatCompletionsRequest` |
+| Kimi | `enable_thinking = false` | 同上 |
+| 兼容服务 | `enable_thinking = false` 与 `chat_template_kwargs.enable_thinking = false` | 同上 |
+| Gemini | `generationConfig.thinkingConfig.thinkingBudget = 0` | `ThinkingModePolicy` / `geminiGenerationConfig` |
+| GPT、Claude | 不写请求体字段 | 同上（`reasoning` 同时表达思考强度，不能当关闭开关） |
+
+两端在开关打开时都带请求头 `X-Enable-Thinking: false` 与 `X-Jerreader-Disable-Thinking: 1`，
+代理请求体里都带可选字段 `disableThinking`。开关关闭时请求与加此功能之前完全一致：Android
+由 `ThinkingModeRequestTest`、iOS 由 `BackendTranslationServiceTests` 逐字段断言，两端
+「提示词与 AI 行为」分组只在真正能关掉的服务上显示该开关（代理一律显示，交给代理决定）。
+
 ---
 
 ## 2. 刻意保留的差异

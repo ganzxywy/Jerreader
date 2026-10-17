@@ -17,6 +17,12 @@
 
 本次为小范围 UI 与状态修整，不修改 EPUB 正文、阅读进度或学习数据。
 
+## 翻译与 AI
+
+- 新增「关闭深度思考」开关（设置 → 翻译与 AI → 提示词与 AI 行为）：打开后翻译与句子分析请求会要求服务端跳过思维链，译文返回更快、输出 token 更少。默认关闭，保持服务商默认行为。
+- 关闭方式按服务商分别下发：DeepSeek 用 `thinking` 与 `reasoning_effort`，Kimi 与兼容服务用 `enable_thinking`（兼容服务同时给 `chat_template_kwargs`），Gemini 用 `thinkingBudget: 0`；GPT 与 Claude 不写请求体字段，只带 `X-Enable-Thinking: false` 请求头。
+- 自建代理可以从请求头 `X-Jerreader-Disable-Thinking: 1` 或请求体可选字段 `disableThinking` 读到这个意图。开关关闭时请求与之前完全一致。
+
 ## 安装包说明
 
 - Android APK 继续使用既有的 Debug 证书签名，以保持与之前测试分发版的覆盖安装兼容性。
